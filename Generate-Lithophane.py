@@ -1,9 +1,8 @@
 import numpy as np
 from stl import mesh
-import matplotlib.pyplot as plt
 from PIL import Image
 from tqdm import tqdm
-from math import cos, sin, sqrt, acos, asin, atan, pi
+from math import cos, sin, sqrt, acos, atan, pi
 
 from argparse import ArgumentParser
 
@@ -27,24 +26,24 @@ args = parser.parse_args()
 #####################################################################
 # user settings
 #####################################################################
-dia = args.dia  # outer diameter of the globe
-wall = args.wall  # undisturbed wall thickness
+dia_arg = args.dia  # outer diameter of the globe
+wall_arg = args.wall  # undisturbed wall thickness
 
 #    the image map is carved from the outside and inside
 #    into the undisturbed wall thickness
-inner_depth = args.inside  # depth of carving on inside
-outer_depth = args.outside  # depth of carving on outside
+inner_depth_arg = args.inside  # depth of carving on inside
+outer_depth_arg = args.outside  # depth of carving on outside
 
 # freq=1 gives 10 pixels along the equator,
 # multiplies with the division factor
-freq = args.freq  # division factor
+freq_arg = args.freq  # division factor
 
 if args.inside > 0:
     POS = "Inside"
-    outer_depth = 0  # depth of carving on outside
+    outer_depth_arg = 0  # depth of carving on outside
 else:
     POS = "Outside"
-    inner_depth = 0  # depth of carving on inside
+    inner_depth_arg = 0  # depth of carving on inside
 
 # using the grayscale map from https://asterweb.jpl.nasa.gov/gdem.asp
 # mapfilename  = 'checkerboard.jpg'
@@ -59,28 +58,28 @@ progress = True  # display a progress bar - doesn't work in IDLE
 # internals
 ####################################################################
 
-outer_radius = dia / 2
-inner_radius = outer_radius - wall
+outer_radius = dia_arg / 2
+inner_radius = outer_radius - wall_arg
 
 print('loading image...')
 img = Image.open(mapfilename)
 
 # downscaling the image map
-longsteps = 10 * freq
-latsteps = 3 * freq + 1
+longsteps = 10 * freq_arg
+latsteps = 3 * freq_arg + 1
 print('resizing image...')
 img = img.convert(mode="L")
 img = img.resize((longsteps, latsteps), resample=Image.BICUBIC)
 print('transforming image...')
 pix = np.array(img.getdata()).reshape(img.size[0], img.size[1], 1, order='F')
-inner_delta = inner_depth / np.amax(pix)
-outer_delta = outer_depth / np.amax(pix)
+inner_delta = inner_depth_arg / np.amax(pix)
+outer_delta = outer_depth_arg / np.amax(pix)
 
 
 def long(vector, longsteps):
-    if (vector[0] > 0):
+    if vector[0] > 0:
         long = longsteps / 2 + atan(vector[1] / vector[0]) * longsteps / (2 * pi)
-    elif (vector[0] < 0):
+    elif vector[0] < 0:
         long = longsteps + atan(vector[1] / vector[0]) * longsteps / (2 * pi)
     else:
         long = longsteps / 2
@@ -89,9 +88,9 @@ def long(vector, longsteps):
 
 def lat(vector, latsteps):
     longrad = sqrt(vector[0] * vector[0] + vector[1] * vector[1])
-    if (longrad != 0):
+    if longrad != 0:
         lat = latsteps / 2 - atan(vector[2] / longrad) * latsteps / pi
-    elif (vector[2] > 0):
+    elif vector[2] > 0:
         lat = 0
     else:
         lat = latsteps - 1
@@ -115,9 +114,9 @@ def divide_triangle(corner_1, corner_2, corner_3, i, j, freq):
     corner_2 = vnormalize(corner_2)
     corner_3 = vnormalize(corner_3)
     alpha_v1 = acos(np.dot(corner_1, corner_2))  # right side angle
-    beta_v1 = i * alpha_v1 / (freq)  # fraction of the angle
+    beta_v1 = i * alpha_v1 / freq  # fraction of the angle
     alpha_v2 = acos(np.dot(corner_1, corner_3))  # left side angle
-    beta_v2 = i * alpha_v2 / (freq)  # fraction of the angle
+    beta_v2 = i * alpha_v2 / freq  # fraction of the angle
     v1 = vnormalize(corner_1 + vnormalize(corner_2 - corner_1) * sin(beta_v1) / (sin(pi / 2 + alpha_v1 / 2 - beta_v1)))
     v2 = vnormalize(corner_1 + vnormalize(corner_3 - corner_1) * sin(beta_v2) / (sin(pi / 2 + alpha_v2 / 2 - beta_v2)))
     alpha_v3 = acos(np.dot(v1, v2))
@@ -134,7 +133,7 @@ def geodesic(freq):
     zc = 1 - a * a / 2
     r = sqrt(1 - zc * zc)
     i = 0
-    while (i < 5):
+    while i < 5:
         corners[i + 1] = [r * cos(i * 2 * pi / 5), r * sin(i * 2 * pi / 5), zc]
         corners[i + 6] = [r * cos((i - 0.5) * 2 * pi / 5), r * sin((i - 0.5) * 2 * pi / 5), -zc]
         i = i + 1
@@ -149,9 +148,9 @@ def geodesic(freq):
         thisrange = range(1, freq + 1)
     for i in thisrange:
         j = 0
-        while (j < i):
+        while j < i:
             k = 0
-            while (k < 5):
+            while k < 5:
                 vertices[0, i, j + k * i] = vnormalize(divide_triangle(corners[0],
                                                                        corners[(k % 5) + 1],
                                                                        corners[((k + 1) % 5) + 1],
@@ -170,9 +169,9 @@ def geodesic(freq):
         thisrange = range(1, freq + 1)
     for i in thisrange:
         j = 0  # southward opened
-        while (j < i):
+        while j < i:
             k = 0
-            while (k < 5):
+            while k < 5:
                 vertices[0, i + freq, j + k * freq] = vnormalize(divide_triangle(corners[k + 1],
                                                                                  corners[(k % 5) + 6],
                                                                                  corners[((k + 1) % 5) + 6],
@@ -180,9 +179,9 @@ def geodesic(freq):
                 k = k + 1
             j = j + 1
         j = 0  # northward opened
-        while (j <= (freq - 1 - i)):
+        while j <= (freq - 1 - i):
             k = 0
-            while (k < 5):
+            while k < 5:
                 vertices[0, i + freq, j + k * freq + i] = vnormalize(divide_triangle(corners[((k + 1) % 5) + 6],
                                                                                      corners[(k % 5) + 1],
                                                                                      corners[((k + 1) % 5) + 1],
@@ -203,8 +202,8 @@ def geodesic(freq):
     else:
         thisrange = range(1, freq + 1)
     for i in thisrange:
-        j = 0;
-        while (j < 5 * i):  # just mirror the vertices
+        j = 0
+        while j < 5 * i:  # just mirror the vertices
             vertices[0, 3 * freq - i, j] = [vertices[0, i, j, 0] * rotcos - vertices[0, i, j, 1] * rotsin,
                                             vertices[0, i, j, 0] * rotsin + vertices[0, i, j, 1] * rotcos,
                                             -vertices[0, i, j, 2]]
@@ -233,14 +232,14 @@ def geodesic_mesh(freq):
     n = 0
 
     if progress:
-        thisrange = tqdm(range(0, freq))
+        this_range = tqdm(range(0, freq))
     else:
-        thisrange = range(0, freq)
-    for i in thisrange:
+        this_range = range(0, freq)
+    for i in this_range:
         j = 0
-        while ((j < i) or ((j == 0) and (i == 0))):
+        while (j < i) or ((j == 0) and (i == 0)):
             k = 0
-            while (k < 5):
+            while k < 5:
                 # the northern "hemi"sphere
                 obj.vectors[n] = [vertices[0, i, k * i + j],
                                   vertices[0, i + 1, k * (i + 1) + j],
@@ -252,7 +251,7 @@ def geodesic_mesh(freq):
                                   vertices[1, i + 1, (k * (i + 1) + j + 1) % (5 * (i + 1))]]
                 n = n + 1
 
-                if (i > 0):
+                if i > 0:
                     obj.vectors[n] = [vertices[0, i, k * i + j],
                                       vertices[0, i + 1, (k * (i + 1) + j + 1) % ((i + 1) * 5)],
                                       vertices[0, i, (k * i + j + 1) % (5 * i)]]
@@ -263,7 +262,7 @@ def geodesic_mesh(freq):
                                       vertices[1, i, (k * i + j + 1) % (5 * i)]]
                     n = n + 1
 
-                if ((j == 0) and (i > 0)):
+                if (j == 0) and (i > 0):
                     obj.vectors[n] = [vertices[0, i, k * i + j],
                                       vertices[0, i + 1, ((k + 5 - 1) % 5) * (i + 1) + i],
                                       vertices[0, i + 1, k * (i + 1) + j]]
@@ -286,7 +285,7 @@ def geodesic_mesh(freq):
                                   vertices[1, (5 - 2) * freq - (i + 1), (k * (i + 1) + j + 1) % ((i + 1) * 5)]]
                 n = n + 1
 
-                if (i > 0):
+                if i > 0:
                     obj.vectors[n] = [vertices[0, (5 - 2) * freq - (i + 1), (k * (i + 1) + j + 1) % ((i + 1) * 5)],
                                       vertices[0, (5 - 2) * freq - i, k * i + j],
                                       vertices[0, (5 - 2) * freq - i, (k * i + j + 1) % (i * 5)]]
@@ -297,7 +296,7 @@ def geodesic_mesh(freq):
                                       vertices[1, (5 - 2) * freq - i, (k * i + j + 1) % (i * 5)]]
                     n = n + 1
 
-                if ((j == 0) and (i > 0)):
+                if (j == 0) and (i > 0):
                     obj.vectors[n] = [vertices[0, (5 - 2) * freq - (i + 1), ((k + 5 - 1) % 5) * (i + 1) + i],
                                       vertices[0, (5 - 2) * freq - i, k * i + j],
                                       vertices[0, (5 - 2) * freq - (i + 1), k * (i + 1) + j]]
@@ -315,12 +314,12 @@ def geodesic_mesh(freq):
     # case (5) // the icosahedron
 
     if progress:
-        thisrange = tqdm(range(0, freq))
+        this_range = tqdm(range(0, freq))
     else:
-        thisrange = range(0, freq)
-    for i in thisrange:
-        j = 0;
-        while (j < freq * 5):
+        this_range = range(0, freq)
+    for i in this_range:
+        j = 0
+        while j < freq * 5:
             obj.vectors[n] = [vertices[0, freq + i, j],
                               vertices[0, freq + i + 1, j],
                               vertices[0, freq + i + 1, (j + 1) % (5 * freq)]]
@@ -347,7 +346,7 @@ def geodesic_mesh(freq):
 
 print('preparing geodesic...')
 
-c = geodesic_mesh(freq)
+c = geodesic_mesh(freq_arg)
 
 print('writing {:}'.format(savefilename))
 c.save(savefilename)
