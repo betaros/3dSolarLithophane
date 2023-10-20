@@ -109,7 +109,6 @@ def vnormalize(vector):
 
 def divide_triangle(corner_1, corner_2, corner_3, i, j, freq):
     # linear interpolation on unit sphere using the triangular sine law
-    vertex = np.empty([1, 3])
     corner_1 = vnormalize(corner_1)
     corner_2 = vnormalize(corner_2)
     corner_3 = vnormalize(corner_3)
@@ -138,7 +137,6 @@ def geodesic(freq):
         corners[i + 6] = [r * cos((i - 0.5) * 2 * pi / 5), r * sin((i - 0.5) * 2 * pi / 5), -zc]
         i = i + 1
     corners[11] = [0, 0, -1]
-    i = 0
     vertices[0, 0, 0] = corners[0]
 
     # main loop calculates northern (z>0) "hemi"sphere
